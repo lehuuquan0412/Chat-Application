@@ -308,7 +308,7 @@ void terminate_handle(char *cur_cmd, int *cur_client)
     {
         pthread_cancel(recieve_thr[opt - 1]);
 
-        if ((num_write = write(client_socket[opt-1], exit_mess, strlen(exit_mess))) == -1) {
+        if ((num_write = write(client_socket[opt-1], exit_mess, strlen(exit_mess) + 1)) == -1) {
             perror("write()");
             return;
         }
@@ -325,7 +325,7 @@ void terminate_handle(char *cur_cmd, int *cur_client)
     }else {
         pthread_cancel(recieve_thr_client[opt - *cur_client -1]);
 
-        if ((num_write = write(connected_socket[opt - *cur_client -1], exit_mess, strlen(exit_mess))) == -1) {
+        if ((num_write = write(connected_socket[opt - *cur_client -1], exit_mess, strlen(exit_mess) + 1)) == -1) {
             perror("write()");
             return;
         }
@@ -353,7 +353,7 @@ void send_handle(char *cur_cmd, int *cur_client, int *cur_server)
     if (quan_var_envr(cur_cmd) < 3)
     {
         printf("%s: command not found\n", cur_cmd);
-        printf("This you mean: connect <id> <message>\n");
+        printf("This you mean: send <id> <message>\n");
         return;
     }
 
@@ -410,6 +410,12 @@ void exit_handle(int *cur_client, int *cur_server)
         close(connected_socket[i]);
     }
 
+    close(pipe_client_empty[0]);
+    close(pipe_client_empty[1]);
+    close(pipe_server_empty[0]);
+    close(pipe_server_empty[1]);
+    close(master_socket);
+
     printf("Goodbye!!!\n");
     
     return;
@@ -422,7 +428,7 @@ void *connect_create(void *args)
     int opt;
     int temp = -1;
     struct stat pipe_client;
-
+    pthread_detach(pthread_self());
     while (1)
     {
         temp = *((int *)args);
@@ -455,6 +461,7 @@ void *connect_create(void *args)
 void *create_listen_message(void *args)
 {
     int opt, ret;
+    pthread_detach(pthread_self());
     while(1)
     {
         pthread_mutex_lock(&lock1);
@@ -573,6 +580,8 @@ int main(int argc, char const *argv[])
             break;
         case 8:
             exit_handle(&cur_client, &cur_server);
+            pthread_cancel(connect_thr);
+            pthread_cancel(create_listen_thread);
             exit(EXIT_SUCCESS);
             break;
         default:
